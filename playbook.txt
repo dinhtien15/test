@@ -1,0 +1,98 @@
+---
+- hosts: all
+  become: True
+  tasks:
+  - name: Add IPs to /etc/hosts on master and workers
+    lineinfile:
+      dest: /etc/hosts
+      regexp: '.*{{ item }}$'
+      line: "{{ hostvars[item].ansible_host }} {{item}}"
+      state: present
+    when: hostvars[item].ansible_host is defined
+    with_items: "{{ groups.all }}"
+  - name: Disable SELinux
+    selinux:
+      state: disabled
+  - name: Disabling Swap on all nodes
+    shell: swapoff -a
+  - name: Commenting Swap entries in /etc/fstab
+    replace:
+     path: /etc/fstab
+     regexp: '(^/.*swap*)'
+     replace: '# \1'
+  - name: Enabling Bridge Firewall Rule
+    shell: "modprobe br_netfilter"
+  - name: Enabling Bridge Firewall Rule
+    shell: "echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables"
+  - name: ensure a list of packages installed
+    yum:
+       name: "{{ packages }}"
+    vars:
+      packages:
+      - nano
+      - yum-utils
+	  - device-mapper-persistent-data
+	  - lvm2
+  - name: "Configuring docker-ce repo"
+    get_url:
+      url: https://download.docker.com/linux/centos/docker-ce.repo
+      dest: /etc/yum.repos.d/docker-ce.repo
+      mode: 0644
+  - name: " Installing Docker latest version"
+    yum:
+      name: docker-ce
+      state: present
+  - name: Configuring kubernetes Yum Repository
+    yum_repository:
+       name: kubernetes
+       description: Configure the kubernetes repo
+       baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+       gpgcheck: yes
+       enabled: 1
+       repo_gpgcheck: 1
+       exclude:
+         - kubeadm
+         - kubelet
+         - kubectl
+       gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  - name: Download Kubernetes
+    package:
+      name:
+        - "kubeadm"
+        - "kubelet"
+        - "kubectl"
+      state: present
+      disable_excludes: "kubernetes"
+  - name: Changing Docker Cgroup
+    blockinfile:
+      path: "/etc/docker/daemon.json"
+      create: yes
+      marker: ""
+      block:
+        "{\n
+          \"exec-opts\": [\"native.cgroupdriver=systemd\"],\n
+          \"log-driver\": \"json-file\",\n
+          \"log-opts\": {\n
+            \"max-size\": \"100m\"\n
+        },\n
+        \"storage-driver\": \"overlay2\",\n
+        \"storage-opts\": [\n
+          \"overlay2.override_kernel_check=true\"],\"insecure-registries\" : [\"10.9.2.151:5000\",\"10.9.3.122:5000\", \"10.9.3.70:5000\"]\n
+        }"
+  - name: Reloading systemd driver
+    systemd:
+      daemon_reload: yes
+  - name: Reboot a Linux machine
+    reboot:
+      reboot_timeout: 150
+  - name: " Starting and Enabling Docker service"
+    service:
+      name: docker
+      state: started
+      enabled: yes
+  - name: Starting & Enabling Kubelet
+    service:
+      name: "kubelet"
+      state: started
+      enabled: yes
+
