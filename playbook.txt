@@ -95,4 +95,58 @@
       name: "kubelet"
       state: started
       enabled: yes
+	  
+	  
+---
+- hosts: kubernetes_master_nodes
+  become: True
+  tasks:
+  - name: Initializing Kubernetes cluster
+    shell: "kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=NumCPU --ignore-preflight-errors=Mem"
 
+  - name: Creating the required directories
+    file:
+      path: "mkdir -p $HOME/.kube"
+      state: directory
+#  - name: Copy command of KubeAdm
+#    shell:
+#      cmd: sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  - name: copy kubernetes admin.conf to root home dir
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: $HOME/.kube/config
+      remote_src: yes
+  - name: Changing ownership of directories
+    shell:
+      cmd: sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  - name: Adding Flannel Network
+    command:
+      cmd: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+  - name: Generate join command
+    shell: "kubeadm token create --print-join-command"
+	register: output
+  - name: Storing Logs and Generated token for future purpose.
+    local_action: copy content={{ output.stdout }} dest={{ token_file }}
+    become: False
+
+
+---
+- hosts: kubernetes_woker_nodes
+  become: True
+  tasks:
+  - name: Copying token to worker nodes
+    copy: src={{ token_file }} dest=join_token
+
+  - name: Joining worker nodes with kubernetes master
+    shell: |
+     kubeadm reset -f
+     cat join_token | tail -2 > out.sh
+     sh out.sh
+	 
+	 
+	 
+https://levelup.gitconnected.com/how-to-create-multi-node-kubernetes-cluster-using-ansible-roles-automation-inside-ec2-instance-c539a1b1f9a1
+https://github.com/ctienshi/kubernetes-ansible/blob/master/centos/hosts
+https://ugurakgul.medium.com/bootstrapping-a-kubernetes-cluster-with-ansible-2d1a1155fcb9
+https://harshitdawar.medium.com/launching-a-multi-node-kubernetes-cluster-using-ansible-4a63a542e8af
+https://stackoverflow.com/questions/57808932/setup-kubernetes-using-ansible
