@@ -107,7 +107,10 @@
   tasks:
   - name: Initializing Kubernetes cluster
     shell: "kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=NumCPU --ignore-preflight-errors=Mem"
-
+    register: result
+    until: result.stdout.find("Your Kubernetes control-plane has initialized successfully!") != -1
+    retries: 1
+    delay: 20
   - name: Creating the required directories
     file:
       path: "mkdir -p $HOME/.kube"
