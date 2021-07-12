@@ -20,8 +20,8 @@
      path: /etc/fstab
      regexp: '(^/.*swap*)'
      replace: '# \1'
-#  - name: Enabling Bridge Firewall Rule
-#    shell: "modprobe br_netfilter"
+  - name: Enabling Bridge Firewall Rule
+    shell: "modprobe br_netfilter"
 #  - name: Enabling Bridge Firewall Rule
 #    shell: "echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables"
   - name: ensure net.bridge-nf-call-iptables is set to 1
@@ -113,7 +113,7 @@
     delay: 20
   - name: Creating the required directories
     file:
-      path: "mkdir -p $HOME/.kube"
+      path: "$HOME/.kube"
       state: directory
   - name: copy kubernetes admin.conf to root home dir
     copy:
