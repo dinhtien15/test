@@ -36,25 +36,22 @@
       - yum-utils
       - device-mapper-persistent-data
       - lvm2
-  - name: "Configuring docker-ce repo"
-    get_url:
-      url: https://download.docker.com/linux/centos/docker-ce.repo
-      dest: /etc/yum.repos.d/docker-ce.repo
+  - name: "Configuring docker-ce repo
+    shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
   - name: " Installing Docker latest version"
     shell: yum update && yum install -y docker-ce-18.06.2.ce
   - name: Configuring kubernetes Yum Repository
-    yum_repository:
-       name: kubernetes
-       description: Configure the kubernetes repo
-       baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-       gpgcheck: yes
-       enabled: 1
-       repo_gpgcheck: 1
-       exclude:
-         - kubeadm
-         - kubelet
-         - kubectl
-       gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    blockinfile:
+      path: /etc/yum.repos.d/kubernetes.repo
+      block: |
+        [kubernetes]
+        name=Kubernetes
+        baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+        enabled=1
+        gpgcheck=1
+        repo_gpgcheck=1
+        gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
   - name: Download Kubernetes
     shell: yum install -y kubelet-1.15.3 kubeadm-1.15.3 kubectl-1.15.3
   - name: Changing Docker Cgroup
@@ -113,8 +110,7 @@
     shell:
       cmd: sudo chown $(id -u):$(id -g) $HOME/.kube/config
   - name: Adding Flannel Network
-    command:
-      cmd: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml\
+    shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
   - name: get join command
     shell: kubeadm token create --print-join-command
     register: join_command_raw
@@ -128,34 +124,5 @@
       shell: "{{ hostvars['kubernetes-master'].join_command }}"
       args:
         chdir: $HOME
-
-
-
-
-
-
-
-
-
-
-
-
-
-#  - name: Generate join command
-#    shell: "kubeadm token create --print-join-command"
-#	register: output
-#  - name: Storing Logs and Generated token for future purpose.
-#    local_action: copy content={{ output.stdout }} dest={{ token_file }}
-#    become: False
-#
-#- hosts: kubernetes_woker_nodes
-#  become: True
-#  tasks:
-#  - name: Joining worker nodes with kubernetes master
-#    shell: |
-#     kubeadm reset -f
-#     cat token_file | tail -2 > out.sh
-#     sh out.sh
-	 
 	 
 	 
